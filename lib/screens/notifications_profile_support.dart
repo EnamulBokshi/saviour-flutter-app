@@ -3,6 +3,7 @@ import '../constants/app_constants.dart';
 import '../widgets/shared_widgets.dart';
 import 'home_screen.dart';
 import 'inbox_screen.dart';
+import 'donation_list_screen.dart';
 
 
 // ── Notifications Screen ─────────────────────────────────────────────────────
@@ -466,7 +467,14 @@ class ProfileScreen extends StatelessWidget {
           color: isDanger ? AppColors.primary : const Color(0xFFDDDDDD),
           size: 20,
         ),
-        onTap: () {},
+        onTap: () {
+          if (item['label'] == 'My Donations') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DonationListScreen()),
+            );
+          }
+        },
       ),
     );
   }

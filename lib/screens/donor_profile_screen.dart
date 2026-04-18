@@ -5,6 +5,7 @@ import 'notifications_screen.dart';
 import 'profile_screen.dart';
 import '../services/blood_request_service.dart';
 import '../services/auth_service.dart';
+import '../services/donation_service.dart';
 
 class DonorProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? donor;
@@ -434,70 +435,122 @@ class _DonorProfileScreenState extends State<DonorProfileScreen> {
 
   // ── Action Buttons ─────────────────────────────────────────────────────────
   Widget _buildActionButtons(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           Expanded(
-            child: SizedBox(
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: () => _showCallDialog(context),
-                icon: const Icon(Icons.call, size: 18, color: Colors.white),
-                label: const Text(
-                  'Call',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.volunteer_activism, size: 18),
+              label: const Text('Confirm Donation'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE8304A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE8304A),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: SizedBox(
-              height: 52,
-              child: OutlinedButton.icon(
-                onPressed: () => _showRequestDialog(context),
-                icon: const Icon(
-                  Icons.water_drop,
-                  size: 18,
-                  color: Color(0xFFE8304A),
-                ),
-                label: const Text(
-                  'Request',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFE8304A),
+              onPressed: () async {
+                final donorId = widget.donor?['id'];
+                if (donorId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Donor ID not found.')),
+                  );
+                  return;
+                }
+                final TextEditingController requestIdCtrl = TextEditingController();
+                DateTime? donationDate = DateTime.now();
+                String status = 'CONFIRMED';
+                await showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Create Donation'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: requestIdCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Blood Request ID',
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: donationDate!,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (picked != null) donationDate = picked;
+                          },
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              decoration: const InputDecoration(
+                                labelText: 'Donation Date',
+                              ),
+                              controller: TextEditingController(
+                                text: donationDate == null
+                                    ? ''
+                                    : '${donationDate!.year}-${donationDate!.month.toString().padLeft(2, '0')}-${donationDate!.day.toString().padLeft(2, '0')}',
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<String>(
+                          value: status,
+                          items: const [
+                            DropdownMenuItem(value: 'CONFIRMED', child: Text('CONFIRMED')),
+                            DropdownMenuItem(value: 'PENDING', child: Text('PENDING')),
+                            DropdownMenuItem(value: 'CANCELLED', child: Text('CANCELLED')),
+                          ],
+                          onChanged: (v) => status = v ?? 'CONFIRMED',
+                          decoration: const InputDecoration(labelText: 'Status'),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (requestIdCtrl.text.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Blood Request ID required.')),
+                            );
+                            return;
+                          }
+                          try {
+                            await DonationService().createDonation(
+                              donorId: donorId,
+                              bloodRequestId: requestIdCtrl.text.trim(),
+                              donationDate: donationDate!,
+                              status: status,
+                            );
+                            if (context.mounted) {
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Donation created!')),
+                              );
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: \\${e.toString()}')),
+                            );
+                          }
+                        },
+                        child: const Text('Create'),
+                      ),
+                    ],
                   ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFFE8304A), width: 1.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],
